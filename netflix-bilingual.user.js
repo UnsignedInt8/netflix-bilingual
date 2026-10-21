@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Netflix Bilingual Subtitles (English Learning)
 // @namespace    https://github.com/local/netflix-bilingual
-// @version      0.1.0
+// @version      0.1.1
 // @description  Always show English subtitles under the Netflix subtitle you picked (e.g. Chinese), for learning English.
 // @match        https://www.netflix.com/*
 // @run-at       document-start
@@ -280,9 +280,17 @@ function nfBilingualMain() {
     }
   }
 
-  function setNativeShift(container, px) {
-    const tt = container.querySelector('.player-timedtext');
-    if (tt) tt.style.transform = px ? 'translateY(' + -px + 'px)' : '';
+  // Netflix rewrites inline styles of its subtitle element about once a second,
+  // so the shift lives in a stylesheet rule (!important) driven by a CSS
+  // variable instead of an inline transform.
+  function setNativeShift(px) {
+    if (!document.getElementById('nf-bilingual-style')) {
+      const st = document.createElement('style');
+      st.id = 'nf-bilingual-style';
+      st.textContent = '.player-timedtext{translate:0 var(--nfb-shift,0px) !important}';
+      (document.head || document.documentElement).appendChild(st);
+    }
+    document.documentElement.style.setProperty('--nfb-shift', -px + 'px');
     shift = px;
   }
 
@@ -300,7 +308,7 @@ function nfBilingualMain() {
 
   function hide(container) {
     if (overlay) { overlay.style.display = 'none'; overlay.textContent = ''; }
-    if (shift && container) setNativeShift(container, 0);
+    if (shift) setNativeShift(0);
   }
 
   function render(video, text) {
@@ -318,7 +326,7 @@ function nfBilingualMain() {
     let top = base + GAP_PX;
     const overflow = top + overlay.offsetHeight - cRect.height * 0.97;
     const newShift = Math.max(0, Math.round(overflow));
-    if (newShift !== shift) setNativeShift(container, newShift);
+    if (newShift !== shift) setNativeShift(newShift);
     overlay.style.top = Math.round(top - newShift) + 'px';
   }
 
