@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Netflix Bilingual Subtitles (English Learning)
 // @namespace    https://github.com/local/netflix-bilingual
-// @version      0.1.1
+// @version      0.1.2
 // @description  Always show English subtitles under the Netflix subtitle you picked (e.g. Chinese), for learning English.
 // @match        https://www.netflix.com/*
 // @run-at       document-start
@@ -250,6 +250,8 @@ function nfBilingualMain() {
       return {
         movieId: p.getMovieId && p.getMovieId(),
         lang: track && String(track.bcp47 || track.language || '').toLowerCase(),
+        // user switched subtitles to "Off"
+        off: !track || !!track.isNoneTrack || /NONE/.test(String(track.trackId || '')),
       };
     } catch (e) {
       return {};
@@ -332,6 +334,7 @@ function nfBilingualMain() {
 
   // ---- main loop ---------------------------------------------------------
   let lastKey = '';
+  let subsOff = false;
   function tick() {
     const video = document.querySelector('video');
     const urlId = (location.pathname.match(/^\/watch\/(\d+)/) || [])[1];
@@ -343,6 +346,12 @@ function nfBilingualMain() {
     if (!enabled) { hide(overlay && overlay.parentElement); dbg('disabled (Alt+E)'); return; }
 
     const info = playerInfo();
+    subsOff = !!info.off;
+    if (subsOff) {                      // user turned subtitles off
+      hide(overlay && overlay.parentElement);
+      dbg('subtitles are off');
+      return;
+    }
     if (info.lang && info.lang.split('-')[0] === LEARN_LANG) { // already English
       hide(overlay && overlay.parentElement);
       dbg('selected subtitle is already English: ' + info.lang);
@@ -360,7 +369,7 @@ function nfBilingualMain() {
 
     loadCues(movieId).then((cues) => {
       if (!cues) { dbg('no English cues for ' + movieId); return; }
-      if (!enabled) return;
+      if (!enabled || subsOff) return;
       const cue = cueAt(cues, video.currentTime);
       render(video, cue ? cue.text : '');
     });
