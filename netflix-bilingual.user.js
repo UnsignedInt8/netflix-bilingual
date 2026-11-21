@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Netflix Bilingual Subtitles (English Learning)
-// @namespace    https://github.com/local/netflix-bilingual
+// @namespace    https://github.com/unsignedint8/netflix-bilingual
 // @version      0.1.2
 // @description  Always show English subtitles under the Netflix subtitle you picked (e.g. Chinese), for learning English.
 // @match        https://www.netflix.com/*
