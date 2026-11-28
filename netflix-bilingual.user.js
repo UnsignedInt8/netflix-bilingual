@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Netflix Bilingual Subtitles (English Learning)
 // @namespace    https://github.com/unsignedint8/netflix-bilingual
-// @version      0.1.2
+// @version      0.1.3
 // @description  Always show English subtitles under the Netflix subtitle you picked (e.g. Chinese), for learning English.
 // @match        https://www.netflix.com/*
 // @run-at       document-start
@@ -24,6 +24,10 @@ function nfBilingualMain() {
   const GAP_PX = 4;                 // gap between native subtitle and ours
   const TICK_MS = 100;
   const STORAGE_KEY = 'nfBilingual.enabled';
+  const SIZE_KEY = 'nfBilingual.sizeLevel';
+  const SIZE_STEP = 1.1;            // each +/- press scales the font by this factor
+  const SIZE_MIN = -6;
+  const SIZE_MAX = 10;
   const LOG = '[NF-Bilingual]';
 
   const manifests = new Map();      // movieId -> text tracks[]
@@ -263,6 +267,10 @@ function nfBilingualMain() {
   let shift = 0;                    // px we moved the native subtitles up
   let lastNativeBottom = null;      // px from container top (unshifted)
   let enabled = localStorage.getItem(STORAGE_KEY) !== '0';
+  let sizeLevel = (() => {
+    const n = parseInt(localStorage.getItem(SIZE_KEY), 10);
+    return Number.isFinite(n) ? Math.min(SIZE_MAX, Math.max(SIZE_MIN, n)) : 0;
+  })();
 
   function ensureOverlay(container) {
     if (!overlay) {
@@ -319,7 +327,7 @@ function nfBilingualMain() {
     ensureOverlay(container);
     const cRect = container.getBoundingClientRect();
     if (overlay.textContent !== text) overlay.textContent = text;
-    overlay.style.fontSize = Math.round(cRect.height * FONT_RATIO) + 'px';
+    overlay.style.fontSize = Math.round(cRect.height * FONT_RATIO * Math.pow(SIZE_STEP, sizeLevel)) + 'px';
     overlay.style.display = 'block';
 
     const nb = nativeBottom(container, cRect.top);
@@ -377,13 +385,27 @@ function nfBilingualMain() {
 
   setInterval(tick, TICK_MS);
 
-  // Alt+E toggles the English line
+  function changeSize(delta) {
+    const next = Math.min(SIZE_MAX, Math.max(SIZE_MIN, sizeLevel + delta));
+    if (next === sizeLevel) return;
+    sizeLevel = next;
+    try { localStorage.setItem(SIZE_KEY, String(sizeLevel)); } catch (e) { /* ignore */ }
+    console.log(LOG, 'font size level', sizeLevel);
+  }
+
+  // Alt+E toggles the English line; '-' / '+' shrink / enlarge it one step
   window.addEventListener('keydown', (e) => {
     if (e.altKey && e.code === 'KeyE') {
       enabled = !enabled;
       localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
       console.log(LOG, enabled ? 'on' : 'off');
+      return;
     }
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') changeSize(-1);
+    else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') changeSize(1);
   }, true);
 
   window.__nfBilingual = { manifests, cueCache, parseVTT, parseTTML, pickTrack, stats, idMap, playerInfo,
